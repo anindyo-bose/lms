@@ -1,0 +1,138 @@
+/* LessonList Styles */
+
+.container {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.header {
+  padding: 1rem 1.25rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.loading,
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background: #f9fafb;
+}
+
+.item.current {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+}
+
+.number {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.current .number {
+  background: #3b82f6;
+  color: white;
+}
+
+.completed .number {
+  background: #10b981;
+  color: white;
+}
+
+.in-progress .number {
+  background: #f59e0b;
+  color: white;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.duration {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.completedBadge {
+  font-size: 0.7rem;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.progressBadge {
+  font-size: 0.7rem;
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.statusIcon {
+  flex-shrink: 0;
+  width: 20px;
+  font-size: 0.875rem;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.completed .statusIcon {
+  color: #10b981;
+}
+
+.in-progress .statusIcon {
+  color: #f59e0b;
+}

@@ -1,0 +1,248 @@
+# GitHub Actions CI/CD Pipeline
+# Runs on all PRs and pushes to main/develop branches
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20.x'
+  PNPM_VERSION: '8'
+
+jobs:
+  # Quality Gates - Run all checks
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: composey_lms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript Check
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Unit Tests with Coverage
+        run: pnpm run test:coverage
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/composey_lms_test
+
+      - name: Coverage Threshold Check
+        run: |
+          chmod +x ./scripts/check-coverage.sh
+          ./scripts/check-coverage.sh
+
+      - name: Security Audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Build All
+        run: pnpm run build
+
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  # Integration Tests
+  integration-tests:
+    name: Integration Tests
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: composey_lms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Database Migrations
+        run: pnpm run db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/composey_lms_test
+
+      - name: Start Services
+        run: |
+          pnpm run build
+          pnpm run services:start &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/composey_lms_test
+          JWT_SECRET: test-jwt-secret
+          NODE_ENV: test
+
+      - name: Run Integration Tests
+        run: pnpm run test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/composey_lms_test
+
+  # Lighthouse Performance Check
+  lighthouse:
+    name: Lighthouse Audit
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Shell App
+        run: pnpm --filter @composey/shell build
+
+      - name: Start Shell App
+        run: |
+          pnpm --filter @composey/shell start &
+          sleep 15
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: 'http://localhost:3000'
+          configPath: ./.lighthouserc.json
+          temporaryPublicStorage: true
+
+  # Deploy to Staging (only on develop branch)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [quality-gates, integration-tests]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for Production
+        run: pnpm run build
+        env:
+          NODE_ENV: production
+
+      - name: Deploy to Staging
+        run: echo "Deploy to staging environment (configure your deployment here)"
+
+  # Deploy to Production (only on main branch)
+  deploy-production:
+    name: Deploy to Production
+    needs: [quality-gates, integration-tests, lighthouse]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for Production
+        run: pnpm run build
+        env:
+          NODE_ENV: production
+
+      - name: Deploy to Production
+        run: echo "Deploy to production environment (configure your deployment here)"
