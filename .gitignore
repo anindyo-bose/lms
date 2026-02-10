@@ -1,0 +1,71 @@
+# Git ignored files for Composey LMS
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+package-lock.json
+pnpm-lock.yaml
+
+# Build
+dist/
+build/
+.next/
+out/
+.turbo/
+.cache/
+
+# IDE
+.vscode/
+!.vscode/launch.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Test
+coverage/
+.nyc_output/
+jest-results.json
+*.lcov
+
+# Logs
+logs/
+*.log
+
+# Temporary
+tmp/
+temp/
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Docker
+docker-compose.override.yml
+
+# Lighthouse
+lighthouse-report.json
+lighthouse-report.html
+
+# Secrets (never commit)
+.env.production
+secrets/
+
+# Database
+*.sql.bak
+db/migrations/rollback*.sql
+
+# Build artifacts
+*.tgz
+*.tar.gz
