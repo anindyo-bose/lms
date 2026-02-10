@@ -10,12 +10,16 @@ import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import { createCourseRouter } from './routes/courses';
 import { createLessonRouter } from './routes/lessons';
+import { createAdminRouter } from './routes/admin';
 import quizRoutes from './routes/quizzes';
 import progressRoutes from './routes/progress';
 import { initQuizService } from './services/quizService';
 import { initProgressService } from './services/progressService';
+import path from 'path';
 
-dotenv.config();
+// Load env files - first try local .env, then root .env.local
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env.local') });
 
 // PostgreSQL connection pool
 const pool = new Pool({
@@ -72,7 +76,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 /**
  * Health check
  */
-app.get('/health', async (req: Request, res: Response): Promise<void> => {
+app.get('/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     await pool.query('SELECT 1');
     res.json({
@@ -99,13 +103,14 @@ initProgressService(pool);
 
 app.use('/api', createCourseRouter(pool));
 app.use('/api', createLessonRouter(pool));
+app.use('/api', createAdminRouter(pool));
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/progress', progressRoutes);
 
 /**
  * 404 handler
  */
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     error: 'Not found',
@@ -115,7 +120,7 @@ app.use((req: Request, res: Response) => {
 /**
  * Error handler
  */
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,

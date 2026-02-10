@@ -17,7 +17,7 @@
     "react-dom": "^18.2.0",
     "axios": "^1.6.2",
     "@composey/shared-types": "1.0.0",
-    "@module-federation/nextjs-mf": "^6.0.0"
+    "@module-federation/nextjs-mf": "^8.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

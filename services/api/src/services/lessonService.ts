@@ -22,11 +22,11 @@ export class LessonService {
       const result = await this.pool.query(
         `SELECT 
           id, course_id as "courseId", title, description, content,
-          video_url as "videoUrl", duration, "order", published,
+          video_url as "videoUrl", duration, lesson_order as "order", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
         FROM lessons
         WHERE course_id = $1 AND deleted_at IS NULL
-        ORDER BY "order" ASC`,
+        ORDER BY lesson_order ASC`,
         [courseId]
       );
 
@@ -45,7 +45,7 @@ export class LessonService {
       const result = await this.pool.query(
         `SELECT 
           id, course_id as "courseId", title, description, content,
-          video_url as "videoUrl", duration, "order", published,
+          video_url as "videoUrl", duration, lesson_order as "order", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
         FROM lessons
         WHERE id = $1 AND deleted_at IS NULL`,
@@ -70,7 +70,7 @@ export class LessonService {
     try {
       // Get max order for this course
       const orderResult = await this.pool.query(
-        'SELECT COALESCE(MAX("order"), 0) + 1 as max_order FROM lessons WHERE course_id = $1',
+        'SELECT COALESCE(MAX(lesson_order), 0) + 1 as max_order FROM lessons WHERE course_id = $1',
         [courseId]
       );
       const order = payload.order || orderResult.rows[0].max_order;
@@ -80,12 +80,12 @@ export class LessonService {
 
       const result = await this.pool.query(
         `INSERT INTO lessons (
-          id, course_id, title, description, content, video_url, duration, "order", published, created_at, updated_at
+          id, course_id, title, description, content, video_url, duration, lesson_order, is_published, created_at, updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING 
           id, course_id as "courseId", title, description, content,
-          video_url as "videoUrl", duration, "order", published,
+          video_url as "videoUrl", duration, lesson_order as "order", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`,
         [id, courseId, payload.title, payload.description, payload.content, payload.videoUrl, payload.duration, order, false, now, now]
       );
@@ -128,11 +128,11 @@ export class LessonService {
         params.push(payload.duration);
       }
       if (payload.order !== undefined) {
-        fields.push(`"order" = $${paramCount++}`);
+        fields.push(`lesson_order = $${paramCount++}`);
         params.push(payload.order);
       }
       if (payload.published !== undefined) {
-        fields.push(`published = $${paramCount++}`);
+        fields.push(`is_published = $${paramCount++}`);
         params.push(payload.published);
       }
 
@@ -150,7 +150,7 @@ export class LessonService {
         query +
           ` RETURNING 
             id, course_id as "courseId", title, description, content,
-            video_url as "videoUrl", duration, "order", published,
+            video_url as "videoUrl", duration, lesson_order as "order", is_published as "published",
             created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`,
         params
       );

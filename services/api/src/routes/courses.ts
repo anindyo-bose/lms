@@ -12,7 +12,7 @@
 
 import { Router, Request, Response } from 'express';
 import { CourseService } from '../services/courseService';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { requireAuth, requireRole, optionalAuth } from '../middleware/auth';
 import { API_ERRORS } from '../types/index';
 import { Pool } from 'pg';
 
@@ -22,16 +22,19 @@ export function createCourseRouter(pool: Pool): Router {
 
   /**
    * GET /api/courses
-   * List all published courses with optional filters
+   * List courses - published only for public, all for admin
    */
-  router.get('/courses', async (req: Request, res: Response): Promise<void> => {
+  router.get('/courses', optionalAuth, async (req: Request, res: Response): Promise<void> => {
     try {
       const { category, level } = req.query;
+      
+      // Admin/super_admin can see all courses
+      const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'super_admin');
 
       const courses = await courseService.getCourses({
         category: category as string | undefined,
         level: level as string | undefined,
-        publishedOnly: true,
+        publishedOnly: !isAdmin,
       });
 
       res.json({
@@ -51,7 +54,7 @@ export function createCourseRouter(pool: Pool): Router {
    * GET /api/courses/:id
    * Get course details
    */
-  router.get('/courses/:id', async (req: Request, res: Response): Promise<void> => {
+  router.get('/courses/:id', optionalAuth, async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const course = await courseService.getCourse(id);
@@ -65,7 +68,7 @@ export function createCourseRouter(pool: Pool): Router {
       }
 
       // If not published and user is not educator, deny access
-      if (!course.published && (!req.user || (req.user.role !== 'educator' && req.user.role !== 'admin'))) {
+      if (!course.published && (!req.user || (req.user.role !== 'educator' && req.user.role !== 'admin' && req.user.role !== 'super_admin'))) {
         res.status(404).json({
           success: false,
           error: API_ERRORS.COURSE_NOT_FOUND.message,
@@ -111,28 +114,31 @@ export function createCourseRouter(pool: Pool): Router {
         return;
       }
 
-      const { title, description, imageUrl, price, category, level } = req.body;
+      const { title, description, imageUrl, image_url, price, category, level, difficulty_level, is_free } = req.body;
+      const actualLevel = level || difficulty_level;
+      const actualImageUrl = imageUrl || image_url || '';
+      const actualPrice = is_free ? 0 : (price || 0);
 
-      if (!title || !description || !imageUrl || price === undefined || !category || !level) {
+      if (!title) {
         res.status(400).json({
           success: false,
-          error: 'Missing required fields',
+          error: 'Title is required',
         });
         return;
       }
 
       const course = await courseService.createCourse(req.user.userId, {
         title,
-        description,
-        imageUrl,
-        price,
-        category,
-        level,
+        description: description || '',
+        imageUrl: actualImageUrl,
+        price: actualPrice,
+        category: category || 'General',
+        level: actualLevel || 'beginner',
       });
 
       res.status(201).json({
         success: true,
-        data: course,
+        course,
       });
     } catch (error) {
       console.error('Error creating course:', error);

@@ -53,18 +53,18 @@ export class TokenService {
 
     // Create access token (short-lived)
     const accessToken = jwt.sign({ ...payload, type: 'access' }, this.accessTokenSecret, {
-      expiresIn: this.accessTokenExpiry,
+      expiresIn: this.accessTokenExpiry as string,
       algorithm: 'HS256',
-    });
+    } as jwt.SignOptions);
 
     // Create refresh token (long-lived)
     const refreshToken = jwt.sign(
       { ...payload, type: 'refresh', jti: crypto.randomBytes(16).toString('hex') },
       this.refreshTokenSecret,
       {
-        expiresIn: this.refreshTokenExpiry,
+        expiresIn: this.refreshTokenExpiry as string,
         algorithm: 'HS256',
-      }
+      } as jwt.SignOptions
     );
 
     // Hash the refresh token for storage in database

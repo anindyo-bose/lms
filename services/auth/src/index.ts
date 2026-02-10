@@ -9,10 +9,12 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
 import { createAuthRouter } from './routes/auth';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from root .env.local
+dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
+dotenv.config(); // Also load any local .env as fallback
 
 // PostgreSQL connection pool
 const pool = new Pool({
@@ -75,7 +77,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 /**
  * Health check endpoint
  */
-app.get('/health', async (req: Request, res: Response): Promise<void> => {
+app.get('/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     // Check database connectivity
     await pool.query('SELECT 1');
@@ -102,7 +104,7 @@ app.use('/auth', createAuthRouter(pool));
 /**
  * 404 handler
  */
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     error: 'Not found',
@@ -112,7 +114,7 @@ app.use((req: Request, res: Response) => {
 /**
  * Global error handler
  */
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,

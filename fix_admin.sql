@@ -1,0 +1,1 @@
+UPDATE users SET password_hash = '$2a$10$uhUxCVG79yH4huLhk1BjpuKo0X1.6nEwrNEY0VygYhbdcVlfUSBGm' WHERE email = 'admin@composey.local';

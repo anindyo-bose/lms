@@ -13,7 +13,6 @@ import { tokenService } from '../services/tokenService';
 import { requireAuth } from '../middleware/auth';
 import { AUTH_ERRORS, LoginRequest, SignupRequest } from '../types/index';
 import { Pool } from 'pg';
-import crypto from 'crypto';
 
 export function createAuthRouter(pool: Pool): Router {
   const router = Router();
@@ -72,7 +71,7 @@ export function createAuthRouter(pool: Pool): Router {
       res.cookie('refresh_token', tokens.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: '/auth',
       });
@@ -81,7 +80,7 @@ export function createAuthRouter(pool: Pool): Router {
       res.cookie('access_token', tokens.accessToken, {
         httpOnly: false, // Allow JS to read for Widget Federation
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 5 * 60 * 1000, // 5 minutes
         path: '/',
       });
@@ -172,7 +171,7 @@ export function createAuthRouter(pool: Pool): Router {
       res.cookie('refresh_token', tokens.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/auth',
       });
@@ -181,7 +180,7 @@ export function createAuthRouter(pool: Pool): Router {
       res.cookie('access_token', tokens.accessToken, {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 5 * 60 * 1000,
         path: '/',
       });
@@ -283,7 +282,7 @@ export function createAuthRouter(pool: Pool): Router {
       res.cookie('refresh_token', newTokens.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: '/auth',
       });
@@ -292,7 +291,7 @@ export function createAuthRouter(pool: Pool): Router {
       res.cookie('access_token', newTokens.accessToken, {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 5 * 60 * 1000,
         path: '/',
       });
@@ -414,6 +413,50 @@ export function createAuthRouter(pool: Pool): Router {
       res.status(AUTH_ERRORS.INTERNAL_ERROR.statusCode).json({
         success: false,
         error: AUTH_ERRORS.INTERNAL_ERROR.message,
+      });
+    }
+  });
+
+  /**
+   * POST /auth/verify
+   * Verify access token (for service-to-service auth)
+   * Called by API service to validate tokens
+   */
+  router.post('/verify', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        res.status(401).json({
+          success: false,
+          error: 'No token provided',
+        });
+        return;
+      }
+
+      const token = authHeader.slice(7);
+      const result = tokenService.verifyAccessToken(token);
+
+      if (!result.valid || !result.payload) {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid token',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        payload: {
+          userId: result.payload.userId,
+          email: result.payload.email,
+          role: result.payload.role,
+        },
+      });
+    } catch (error) {
+      console.error('Verify token error:', error);
+      res.status(401).json({
+        success: false,
+        error: 'Token verification failed',
       });
     }
   });

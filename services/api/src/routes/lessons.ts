@@ -75,7 +75,7 @@ export function createLessonRouter(pool: Pool): Router {
       // Check if user is enrolled (if not published)
       if (!lesson.published && req.user) {
         const isEnrolled = await courseService.isEnrolled(req.user.userId, lesson.courseId);
-        if (!isEnrolled && req.user.role !== 'educator' && req.user.role !== 'admin') {
+        if (!isEnrolled && req.user.role !== 'educator' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
           res.status(403).json({
             success: false,
             error: API_ERRORS.NOT_ENROLLED.message,
@@ -127,7 +127,7 @@ export function createLessonRouter(pool: Pool): Router {
           return;
         }
 
-        if (course.educatorId !== req.user.userId && req.user.role !== 'admin') {
+        if (course.educatorId !== req.user.userId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
           res.status(403).json({
             success: false,
             error: API_ERRORS.NOT_COURSE_OWNER.message,
@@ -135,22 +135,23 @@ export function createLessonRouter(pool: Pool): Router {
           return;
         }
 
-        const { title, description, content, videoUrl, duration } = req.body;
+        const { title, description, content, videoUrl, duration, order } = req.body;
 
-        if (!title || !description || !content || duration === undefined) {
+        if (!title) {
           res.status(400).json({
             success: false,
-            error: 'Missing required fields',
+            error: 'Title is required',
           });
           return;
         }
 
         const lesson = await lessonService.createLesson(courseId, {
           title,
-          description,
-          content,
-          videoUrl,
-          duration,
+          description: description || '',
+          content: content || '',
+          videoUrl: videoUrl || '',
+          duration: duration || 0,
+          order: order || 1,
         });
 
         res.status(201).json({
@@ -174,7 +175,7 @@ export function createLessonRouter(pool: Pool): Router {
   router.put(
     '/lessons/:id',
     requireAuth,
-    requireRole('educator', 'admin'),
+    requireRole('educator', 'admin', 'super_admin'),
     async (req: Request, res: Response): Promise<void> => {
       try {
         if (!req.user) {
@@ -206,7 +207,7 @@ export function createLessonRouter(pool: Pool): Router {
           return;
         }
 
-        if (course.educatorId !== req.user.userId && req.user.role !== 'admin') {
+        if (course.educatorId !== req.user.userId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
           res.status(403).json({
             success: false,
             error: API_ERRORS.NOT_COURSE_OWNER.message,
@@ -237,7 +238,7 @@ export function createLessonRouter(pool: Pool): Router {
   router.delete(
     '/lessons/:id',
     requireAuth,
-    requireRole('educator', 'admin'),
+    requireRole('educator', 'admin', 'super_admin'),
     async (req: Request, res: Response): Promise<void> => {
       try {
         if (!req.user) {
@@ -269,7 +270,7 @@ export function createLessonRouter(pool: Pool): Router {
           return;
         }
 
-        if (course.educatorId !== req.user.userId && req.user.role !== 'admin') {
+        if (course.educatorId !== req.user.userId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
           res.status(403).json({
             success: false,
             error: API_ERRORS.NOT_COURSE_OWNER.message,

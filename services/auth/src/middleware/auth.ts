@@ -101,7 +101,7 @@ export function requireRole(...allowedRoles: string[]) {
  * Optional authentication middleware
  * Doesn't fail if token is missing, but verifies if present
  */
-export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   const token = extractToken(req);
 
   if (!token) {

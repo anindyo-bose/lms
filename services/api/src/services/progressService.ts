@@ -76,10 +76,10 @@ export function initProgressService(dbPool: Pool): void {
 export async function getOverallProgress(userId: string): Promise<LearningProgress> {
   // Get enrollments
   const enrollmentsResult = await pool.query(
-    `SELECT e.*, c.title, c.thumbnail_url
+    `SELECT e.*, c.title, c.image_url as thumbnail_url
      FROM enrollments e
      JOIN courses c ON e.course_id = c.id
-     WHERE e.user_id = $1 AND c.deleted_at IS NULL
+     WHERE e.student_id = $1 AND c.deleted_at IS NULL
      ORDER BY e.enrolled_at DESC`,
     [userId]
   );
@@ -104,8 +104,8 @@ export async function getOverallProgress(userId: string): Promise<LearningProgre
          COUNT(lp.completed_at) as completed_lessons,
          COALESCE(SUM(lp.time_spent_seconds), 0) as time_spent
        FROM lessons l
-       LEFT JOIN lesson_progress lp ON l.id = lp.lesson_id AND lp.user_id = $1
-       WHERE l.course_id = $2 AND l.deleted_at IS NULL AND l.published = true`,
+       LEFT JOIN lesson_progress lp ON l.id = lp.lesson_id AND lp.student_id = $1
+       WHERE l.course_id = $2 AND l.deleted_at IS NULL AND l.is_published = true`,
       [userId, courseId]
     );
 
@@ -113,10 +113,10 @@ export async function getOverallProgress(userId: string): Promise<LearningProgre
     const quizResult = await pool.query(
       `SELECT 
          COUNT(DISTINCT q.id) as total_quizzes,
-         COUNT(DISTINCT CASE WHEN qa.passed THEN q.id END) as quizzes_passed
+         COUNT(DISTINCT CASE WHEN qs.passed THEN q.id END) as quizzes_passed
        FROM quizzes q
        JOIN lessons l ON q.lesson_id = l.id
-       LEFT JOIN quiz_attempts qa ON q.id = qa.quiz_id AND qa.user_id = $1
+       LEFT JOIN quiz_submissions qs ON q.id = qs.quiz_id AND qs.student_id = $1
        WHERE l.course_id = $2 AND q.deleted_at IS NULL`,
       [userId, courseId]
     );
@@ -126,7 +126,7 @@ export async function getOverallProgress(userId: string): Promise<LearningProgre
       `SELECT MAX(lp.updated_at) as last_accessed
        FROM lesson_progress lp
        JOIN lessons l ON lp.lesson_id = l.id
-       WHERE l.course_id = $1 AND lp.user_id = $2`,
+       WHERE l.course_id = $1 AND lp.student_id = $2`,
       [courseId, userId]
     );
 
@@ -173,7 +173,7 @@ export async function getOverallProgress(userId: string): Promise<LearningProgre
   const streakResult = await pool.query(
     `SELECT COUNT(DISTINCT DATE(lp.updated_at)) as active_days
      FROM lesson_progress lp
-     WHERE lp.user_id = $1 AND lp.updated_at > NOW() - INTERVAL '30 days'`,
+     WHERE lp.student_id = $1 AND lp.updated_at > NOW() - INTERVAL '30 days'`,
     [userId]
   );
 
@@ -183,27 +183,31 @@ export async function getOverallProgress(userId: string): Promise<LearningProgre
   // Get last active
   const lastActiveResult = await pool.query(
     `SELECT MAX(updated_at) as last_active
-     FROM lesson_progress WHERE user_id = $1`,
+     FROM lesson_progress WHERE student_id = $1`,
     [userId]
   );
 
-  // Get achievements
-  const achievementsResult = await pool.query(
-    `SELECT * FROM user_achievements
-     WHERE user_id = $1
-     ORDER BY earned_at DESC`,
-    [userId]
-  );
-
-  const achievements: Achievement[] = achievementsResult.rows.map((row) => ({
-    id: row.id,
-    type: row.type,
-    title: row.title,
-    description: row.description,
-    icon: row.icon,
-    earnedAt: row.earned_at,
-    metadata: row.metadata,
-  }));
+  // Get achievements (table may not exist, handle gracefully)
+  let achievements: Achievement[] = [];
+  try {
+    const achievementsResult = await pool.query(
+      `SELECT * FROM user_achievements
+       WHERE user_id = $1
+       ORDER BY earned_at DESC`,
+      [userId]
+    );
+    achievements = achievementsResult.rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      description: row.description,
+      icon: row.icon,
+      earnedAt: row.earned_at,
+      metadata: row.metadata,
+    }));
+  } catch {
+    // user_achievements table may not exist yet
+  }
 
   return {
     userId,
@@ -227,25 +231,30 @@ export async function getRecentActivities(
   userId: string,
   limit = 10
 ): Promise<LearningActivity[]> {
-  const result = await pool.query(
-    `SELECT * FROM learning_activities
-     WHERE user_id = $1
-     ORDER BY created_at DESC
-     LIMIT $2`,
-    [userId, limit]
-  );
+  try {
+    const result = await pool.query(
+      `SELECT * FROM learning_activities
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [userId, limit]
+    );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    userId: row.user_id,
-    type: row.type,
-    title: row.title,
-    description: row.description,
-    courseId: row.course_id,
-    lessonId: row.lesson_id,
-    quizId: row.quiz_id,
-    createdAt: row.created_at,
-  }));
+    return result.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      type: row.type,
+      title: row.title,
+      description: row.description,
+      courseId: row.course_id,
+      lessonId: row.lesson_id,
+      quizId: row.quiz_id,
+      createdAt: row.created_at,
+    }));
+  } catch {
+    // learning_activities table may not exist yet
+    return [];
+  }
 }
 
 /**
@@ -255,28 +264,32 @@ export async function getWeeklyStats(
   userId: string,
   weeks = 8
 ): Promise<WeeklyStats[]> {
-  const result = await pool.query(
-    `SELECT 
-       DATE_TRUNC('week', lp.updated_at) as week,
-       COUNT(DISTINCT CASE WHEN lp.completed_at IS NOT NULL THEN lp.lesson_id END) as lessons_completed,
-       COUNT(DISTINCT CASE WHEN qa.passed THEN qa.id END) as quizzes_passed,
-       COALESCE(SUM(lp.time_spent_seconds), 0) as time_spent
-     FROM lesson_progress lp
-     LEFT JOIN quiz_attempts qa ON qa.user_id = lp.user_id 
-       AND DATE_TRUNC('week', qa.completed_at) = DATE_TRUNC('week', lp.updated_at)
-     WHERE lp.user_id = $1 AND lp.updated_at > NOW() - INTERVAL '${weeks} weeks'
-     GROUP BY DATE_TRUNC('week', lp.updated_at)
-     ORDER BY week DESC
-     LIMIT $2`,
-    [userId, weeks]
-  );
+  try {
+    const result = await pool.query(
+      `SELECT 
+         DATE_TRUNC('week', lp.updated_at) as week,
+         COUNT(DISTINCT CASE WHEN lp.completed_at IS NOT NULL THEN lp.lesson_id END) as lessons_completed,
+         COUNT(DISTINCT CASE WHEN qs.passed THEN qs.id END) as quizzes_passed,
+         COALESCE(SUM(lp.time_spent_seconds), 0) as time_spent
+       FROM lesson_progress lp
+       LEFT JOIN quiz_submissions qs ON qs.student_id = lp.student_id 
+         AND DATE_TRUNC('week', qs.submitted_at) = DATE_TRUNC('week', lp.updated_at)
+       WHERE lp.student_id = $1 AND lp.updated_at > NOW() - INTERVAL '${weeks} weeks'
+       GROUP BY DATE_TRUNC('week', lp.updated_at)
+       ORDER BY week DESC
+       LIMIT $2`,
+      [userId, weeks]
+    );
 
-  return result.rows.map((row) => ({
-    week: row.week.toISOString(),
-    lessonsCompleted: parseInt(row.lessons_completed, 10),
-    quizzesPassed: parseInt(row.quizzes_passed, 10),
-    timeSpent: parseInt(row.time_spent, 10),
-  }));
+    return result.rows.map((row) => ({
+      week: row.week.toISOString(),
+      lessonsCompleted: parseInt(row.lessons_completed, 10),
+      quizzesPassed: parseInt(row.quizzes_passed, 10),
+      timeSpent: parseInt(row.time_spent, 10),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /**

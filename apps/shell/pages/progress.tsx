@@ -2,38 +2,10 @@
  * Progress Page - User learning analytics and progress tracking
  */
 
-import React, { Suspense } from 'react';
-import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
+import React from 'react';
 import Link from 'next/link';
 
-// Dynamically import the ProgressWidget via Module Federation
-const ProgressWidget = dynamic(
-  () =>
-    import('progressWidget/ProgressWidget').then((mod) => ({
-      default: mod.ProgressWidget,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        Loading progress...
-      </div>
-    ),
-  }
-);
-
 export default function ProgressPage() {
-  const router = useRouter();
-
-  const handleCourseClick = (courseId: string) => {
-    router.push(`/courses/${courseId}`);
-  };
-
-  const handleRefresh = () => {
-    console.log('Progress data refreshed');
-  };
-
   return (
     <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
       <header
@@ -65,19 +37,35 @@ export default function ProgressPage() {
         </nav>
       </header>
 
-      <main>
-        <Suspense
-          fallback={
-            <div style={{ padding: '40px', textAlign: 'center' }}>
-              Loading...
-            </div>
-          }
+      <main style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            padding: '40px',
+            textAlign: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
         >
-          <ProgressWidget
-            onCourseClick={handleCourseClick}
-            onRefresh={handleRefresh}
-          />
-        </Suspense>
+          <h2 style={{ margin: '0 0 16px' }}>📊 Progress Tracking</h2>
+          <p style={{ color: '#6b7280', margin: 0 }}>
+            Enroll in courses to start tracking your progress!
+          </p>
+          <Link
+            href="/courses"
+            style={{
+              display: 'inline-block',
+              marginTop: '20px',
+              padding: '10px 20px',
+              background: '#3b82f6',
+              color: 'white',
+              borderRadius: '6px',
+              textDecoration: 'none',
+            }}
+          >
+            Browse Courses
+          </Link>
+        </div>
       </main>
     </div>
   );

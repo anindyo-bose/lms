@@ -12,7 +12,7 @@ declare global {
       user?: {
         userId: string;
         email: string;
-        role: 'student' | 'educator' | 'admin';
+        role: 'student' | 'educator' | 'admin' | 'super_admin';
       };
     }
   }
@@ -93,6 +93,34 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 /**
+ * Optional authentication middleware
+ * Parses user if token present, but doesn't fail if not
+ */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+  const token = extractToken(req);
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  // Verify token with auth service
+  verifyTokenWithAuthService(token).then((payload) => {
+    if (payload) {
+      req.user = {
+        userId: payload.userId,
+        email: payload.email,
+        role: payload.role,
+      };
+    }
+    next();
+  }).catch(() => {
+    // Token invalid, continue without user
+    next();
+  });
+}
+
+/**
  * Require specific role(s)
  */
 export function requireRole(...allowedRoles: string[]) {
@@ -102,6 +130,12 @@ export function requireRole(...allowedRoles: string[]) {
         success: false,
         error: 'Unauthorized',
       });
+      return;
+    }
+
+    // super_admin has access to everything
+    if (req.user.role === 'super_admin') {
+      next();
       return;
     }
 

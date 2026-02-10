@@ -26,7 +26,7 @@ export class CourseService {
       let query = `
         SELECT 
           id, educator_id as "educatorId", title, description, 
-          image_url as "imageUrl", price, category, level, published,
+          image_url as "imageUrl", price, category, difficulty_level as "level", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
         FROM courses
         WHERE deleted_at IS NULL
@@ -35,7 +35,7 @@ export class CourseService {
       let paramCount = 1;
 
       if (filters?.publishedOnly) {
-        query += ` AND published = true`;
+        query += ` AND is_published = true`;
       }
 
       if (filters?.category) {
@@ -44,7 +44,7 @@ export class CourseService {
       }
 
       if (filters?.level) {
-        query += ` AND level = $${paramCount++}`;
+        query += ` AND difficulty_level = $${paramCount++}`;
         params.push(filters.level);
       }
 
@@ -66,7 +66,7 @@ export class CourseService {
       const result = await this.pool.query(
         `SELECT 
           id, educator_id as "educatorId", title, description, 
-          image_url as "imageUrl", price, category, level, published,
+          image_url as "imageUrl", price, category, difficulty_level as "level", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
         FROM courses
         WHERE id = $1 AND deleted_at IS NULL`,
@@ -92,7 +92,7 @@ export class CourseService {
       const result = await this.pool.query(
         `SELECT 
           id, educator_id as "educatorId", title, description, 
-          image_url as "imageUrl", price, category, level, published,
+          image_url as "imageUrl", price, category, difficulty_level as "level", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"
         FROM courses
         WHERE educator_id = $1 AND deleted_at IS NULL
@@ -118,12 +118,12 @@ export class CourseService {
       const result = await this.pool.query(
         `INSERT INTO courses (
           id, educator_id, title, description, image_url, 
-          price, category, level, published, created_at, updated_at
+          price, category, difficulty_level, is_published, created_at, updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING 
           id, educator_id as "educatorId", title, description, 
-          image_url as "imageUrl", price, category, level, published,
+          image_url as "imageUrl", price, category, difficulty_level as "level", is_published as "published",
           created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`,
         [
           id,
@@ -178,11 +178,11 @@ export class CourseService {
         params.push(payload.category);
       }
       if (payload.level !== undefined) {
-        fields.push(`level = $${paramCount++}`);
+        fields.push(`difficulty_level = $${paramCount++}`);
         params.push(payload.level);
       }
       if (payload.published !== undefined) {
-        fields.push(`published = $${paramCount++}`);
+        fields.push(`is_published = $${paramCount++}`);
         params.push(payload.published);
       }
 
@@ -200,7 +200,7 @@ export class CourseService {
         query +
           ` RETURNING 
             id, educator_id as "educatorId", title, description, 
-            image_url as "imageUrl", price, category, level, published,
+            image_url as "imageUrl", price, category, difficulty_level as "level", is_published as "published",
             created_at as "createdAt", updated_at as "updatedAt", deleted_at as "deletedAt"`,
         params
       );
@@ -301,7 +301,7 @@ export class CourseService {
       const result = await this.pool.query(
         `SELECT 
           c.id, c.educator_id as "educatorId", c.title, c.description, 
-          c.image_url as "imageUrl", c.price, c.category, c.level, c.published,
+          c.image_url as "imageUrl", c.price, c.category, c.difficulty_level as "level", c.is_published as "published",
           c.created_at as "createdAt", c.updated_at as "updatedAt", c.deleted_at as "deletedAt",
           e.enrolled_at as "enrolledAt"
         FROM enrollments e
